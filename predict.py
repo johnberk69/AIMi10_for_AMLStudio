@@ -1,179 +1,17 @@
-#======================================================================================================================================
-#======================================================================================================================================
-#======================================================================================================================================
-# 2023Sep10 mcvogt 
-# USE CASE
-# the goal was to develop a script that could be executed at the command line, accept an input [image] file, and pass
-# it to a local Azure Custom Vision model [Object Detector] exported as an ONNX model
-# this project is for the MN DNR, to provide a public service to all hunters, land owners, and interested wildlife enthusiests to 
-# help them recognize when their local deer are infected with CWD.   The model was conceived by mcvogt, and trained with imagery data
-# from mcvogt's trail and outdoor cameras.  
+# 01/31/2024 JohnB
+# example call >python predict.py TCAI_AIM_Iteration_10_on_Gen_Compact_S1.ONNX/model.onnx 487a.jpg<Enter>
 
-# HISTORY/REVISIONS
-#======================================================================================
-# 2023Nov03 mcvogt
-# this is mikes most recent update from inside an Azure ML Notebook - just prior to downloading the whole
-# python project with renamed .ONNX folder, so it can be used as source for Deploying to a Managed Endpoint using the 
-# AML Studio UI for such things.  that UI looks for a model in the local file system, but apparently not from within AML itself.
-# no changes have been made to the model - it will use an inference script (renamed from predictONNX1OD.py back --> predict.py) to be 
-# more consistent with original example.  also, it was learned that when deploying to a Triton host, that host does Not require a
-# scoring script or environment... so, maybe this has been the confusion for a while.. because other hosts asked for such things.
-
-# 2023Oct31 mcovgt
-# note- when running this predict.py script under Azure ML - the DS11v2 conpute is an Anaconda platform, so the venvs are actually cenvs, and 
-# can be listed and activated/deactivated using conda activate xxxxx, and conda deactivate
-# $ conda env list<enter>
-# $ conda deactivate
-# $ conda activate nameofdesiredcondaenvironment      # actually switches cenvs without having to deactivate one first...
-
-# (azureml_py38) azureuser@compute-ds11v2-aivision:~/cloudfiles/code/Users/michael.vogt$ conda env list
-# # conda environments:
-# #
-# base                     /anaconda
-# azureml_py310_sdkv2      /anaconda/envs/azureml_py310_sdkv2
-# azureml_py38          *  /anaconda/envs/azureml_py38
-# azureml_py38_PT_TF       /anaconda/envs/azureml_py38_PT_TF
-# jupyter_env              /anaconda/envs/jupyter_env
-
-# (azureml_py38) azureuser@compute-ds11v2-aivision:~/cloudfiles/code/Users/michael.vogt$ conda activate azureml_py310_sdkv2
-# (azureml_py310_sdkv2) azureuser@compute-ds11v2-aivision:~/cloudfiles/code/Users/michael.vogt$ 
-
-# NOTE - interestingly, THIS session, the compute appears to have retained the earlier-installed ONNX and ONNXRUNTIME packages.  the same ones
-# that appeared to have disappeared from the initial development work.  perhaps mike only made an error when moving this project across
-# multiple development/execute environments...
-
-# ...
-# msrestazure               0.6.4                    pypi_0    pypi
-# ncurses                   6.4                  h6a678d5_0  
-# ndg-httpsclient           0.5.1                    pypi_0    pypi
-# nest-asyncio              1.5.6              pyhd8ed1ab_0    conda-forge
-# networkx                  3.1                      pypi_0    pypi
-# numpy                     1.25.0                   pypi_0    pypi
-# numpy-base                1.26.0          py310hb5e798b_0  
-# oauthlib                  3.2.2                    pypi_0    pypi
-# onnx                      1.13.1          py310h12ddb61_0  
-# onnxruntime               1.15.1          py310hf70ce4d_0  
-# opencensus                0.11.2                   pypi_0    pypi
-# opencensus-context        0.1.3                    pypi_0    pypi
-# opencensus-ext-azure      1.1.9                    pypi_0    pypi
-# openssl                   3.0.11               h7f8727e_2  
-# packaging                 23.0                     pypi_0    pypi
-# pandas                    2.0.2                    pypi_0    pypi
-# paramiko                  3.2.0                    pypi_0    pypi
-# parso                     0.8.3              pyhd8ed1ab_0    conda-forge
-# pathspec                  0.11.1                   pypi_0    pypi
-# pexpect                   4.8.0              pyh1a96a4e_2    conda-forge
-# pickleshare               0.7.5                   py_1003    conda-forge
-# pillow                    9.5.0                    pypi_0    pypi
-# pip                       23.1.2          py310h06a4308_0  
-# pkginfo                   1.9.6                    pypi_0    pypi
-# ...
-
-# # some re/validation
-# (azureml_py310_sdkv2) azureuser@compute-ds11v2-aivision:~/cloudfiles/code/Users/michael.vogt/aivisionexercises$ python --version
-# Python 3.10.11
-
-# (azureml_py310_sdkv2) azureuser@compute-ds11v2-aivision:~/cloudfiles/code/Users/michael.vogt/aivisionexercises$ python predict.py NADeerCWDclassifier.ONNX/model.ONNX TestImageHealthyDeerDayBuck.jpg 
-# Label: Healthy Deer, Probability: 0.99009, box: (0.29941, 0.50782) (0.61335, 0.81000)
-# Label: UnHealthy Deer, Probability: 0.02532, box: (0.34874, 0.00170) (0.58188, 0.55292)
-# Label: Healthy Deer, Probability: 0.01254, box: (0.00925, 0.15533) (0.87207, 0.98420)
-# (azureml_py310_sdkv2) azureuser@compute-ds11v2-aivision:~/cloudfiles/code/Users/michael.vogt/aivisionexercises$ 
-
-# (azureml_py310_sdkv2) azureuser@compute-ds11v2-aivision:~/cloudfiles/code/Users/michael.vogt/aivisionexercises$ python predict.py NADeerCWDclassifier.ONNX/model.ONNX TestImageUnHealthyDeerDayBuck.jpg 
-# Label: UnHealthy Deer, Probability: 0.13009, box: (0.07849, 0.59303) (0.71738, 0.99858)
-# Label: Healthy Deer, Probability: 0.03130, box: (0.04158, 0.04641) (0.94205, 0.97782)
-# Label: UnHealthy Deer, Probability: 0.01827, box: (0.55772, 0.04974) (0.78629, 0.40335)
-# Label: UnHealthy Deer, Probability: 0.01671, box: (0.22403, 0.21533) (0.77413, 0.71315)
-
-# (azureml_py310_sdkv2) azureuser@compute-ds11v2-aivision:~/cloudfiles/code/Users/michael.vogt/aivisionexercises$ 
-
-
-
-
-
-
-
-# 2023Oct27 mcvogt
-# this version of the CWD model was moved into one of mike's Azure ML workspaces and executed correctly from the terminal there using only a DS11v2 2-core CPU
-# the default pythin 3.8 installed on that compute was already pre-configured with all needed packages to run imported ONNX models... NOTHING was installed using pip
-# example output below...    note - file structure in compute-local ubuntu 20.04 file system matched mikes Dell development and VirtualBox7.0 Ubuntu file systems...
-
-# drwxrwxrwx 2 root root      0 Oct 27 20:25 .
-# drwxrwxrwx 2 root root      0 Oct 27 20:17 ..
-# -rwxrwxrwx 1 root root    315 Oct 27 20:26 .amlignore
-# -rwxrwxrwx 1 root root    315 Oct 27 20:26 .amlignore.amltmp
-# drwxrwxrwx 2 root root      0 Oct 27 20:29 41c20ea0f5414a3381bfab173c1b97a2.ONNX
-# -rwxrwxrwx 1 root root 366147 Oct 27 20:26 TestImageHealthyDeerDayBuck.jpg
-# -rwxrwxrwx 1 root root 371809 Oct 27 20:26 TestImageUNHealthyDeerDayBuck.jpg
-# -rwxrwxrwx 1 root root   7802 Oct 27 20:26 predictONNXS1OD.py
-# -rwxrwxrwx 1 root root   2675 Oct 27 20:26 requirements.txt
-# (azureml_py38) azureuser@compute-ds11v2-aivision:~/cloudfiles/code/Users/michael.vogt/aivisionexercises$ python --version
-# Python 3.8.5
-
-# (azureml_py38) azureuser@compute-ds11v2-aivision:~/cloudfiles/code/Users/michael.vogt/aivisionexercises$ python predictONNXS1OD.py 41c20ea0f5414a3381bfab173c1b97a2.ONNX//model.onnx TestImageHealthyDeerDayBuck.jpg 
-# Label: Healthy Deer, Probability: 0.99026, box: (0.29925, 0.50730) (0.61337, 0.81005)
-# Label: UnHealthy Deer, Probability: 0.02626, box: (0.34982, 0.00156) (0.58259, 0.55344)
-# Label: Healthy Deer, Probability: 0.01254, box: (0.01045, 0.15314) (0.87271, 0.98387)
-# (azureml_py38) azureuser@compute-ds11v2-aivision:~/cloudfiles/code/Users/michael.vogt/aivisionexercises$ 
-
-# (azureml_py38) azureuser@compute-ds11v2-aivision:~/cloudfiles/code/Users/michael.vogt/aivisionexercises$ python predictONNXS1OD.py 41c20ea0f5414a3381bfab173c1b97a2.ONNX//model.onnx TestImageUnHealthyDeerDayBuck.jpg 
-# Label: UnHealthy Deer, Probability: 0.13061, box: (0.07830, 0.59306) (0.71790, 0.99864)
-# Label: Healthy Deer, Probability: 0.03156, box: (0.04017, 0.04701) (0.94438, 0.97847)
-# Label: UnHealthy Deer, Probability: 0.01732, box: (0.55717, 0.05044) (0.78642, 0.40183)
-# Label: UnHealthy Deer, Probability: 0.01644, box: (0.22265, 0.21637) (0.77419, 0.71406)
-# (azureml_py38) azureuser@compute-ds11v2-aivision:~/cloudfiles/code/Users/michael.vogt/aivisionexercises$ 
-
-# 2023Oct17 mcvogt
-# follow up and documenting.  migrating now to a VM hosted by VirtualBox under Wind11Pro
-# Win11Pro(host)\VirtualBox7.0\Ubuntu20.04LTS(guest)\Python3.11.03\this Script
-
-# 2023Oct09 mcvogt
-# later improved code to format Category/Class Label in human-friendly form... 
-# (venv-python3113-datascience) C:\Development\GitHub\AIVisionExercises>python predictONNXS1OD.py 41c20ea0f5414a3381bfab173c1b97a2.ONNX/model.onnx TestImageHealthyDeerDayBuck.jpg
-# Label: Healthy Deer, Probability: 0.99009, box: (0.29941, 0.50782) (0.61335, 0.81000)
-# Label: UnHealthy Deer, Probability: 0.02532, box: (0.34874, 0.00170) (0.58188, 0.55292)
-# Label: Healthy Deer, Probability: 0.01254, box: (0.00925, 0.15533) (0.87207, 0.98420)
-
-# (venv-python3113-datascience) C:\Development\GitHub\AIVisionExercises>python predictONNXS1OD.py 41c20ea0f5414a3381bfab173c1b97a2.ONNX\model.onnx TestImageUnHealthyDeerDayBuck.jpg
-# Label: UnHealthy Deer, Probability: 0.13009, box: (0.07849, 0.59303) (0.71738, 0.99858)
-# Label: Healthy Deer, Probability: 0.03130, box: (0.04158, 0.04641) (0.94205, 0.97782)
-# Label: UnHealthy Deer, Probability: 0.01827, box: (0.55772, 0.04974) (0.78629, 0.40335)
-# Label: UnHealthy Deer, Probability: 0.01671, box: (0.22403, 0.21533) (0.77413, 0.71315)
-
-# (venv-python3113-datascience) C:\Development\GitHub\AIVisionExercises>
-#
-# 2023Oct02 mcvogt
-# first an example of UnHealthy animal... 
-# WORKING!!!!!! ========================== example ====================================
-# |<-venv that was activated->| |<------- current directory -------->| python  |<-predict script->| |<----relative path from script to model->|    |<--image to be processed-->|
-# (venv-python3113-datascience) C:\Development\GitHub\AIVisionExercises>python predictONNXS1OD.py 41c20ea0f5414a3381bfab173c1b97a2.ONNX/model.onnx TestImageUnHealthyDeerDayBuck.jpg
-# Label: 1, Probability: 0.13009, box: (0.07849, 0.59303) (0.71738, 0.99858)
-# Label: 0, Probability: 0.03130, box: (0.04158, 0.04641) (0.94205, 0.97782)
-# Label: 1, Probability: 0.01827, box: (0.55772, 0.04974) (0.78629, 0.40335)
-# Label: 1, Probability: 0.01671, box: (0.22403, 0.21533) (0.77413, 0.71315)
-
-# (venv-python3113-datascience) C:\Development\GitHub\AIVisionExercises>
-
-# second, an example of a Healthy animal...  
-# (venv-python3113-datascience) C:\Development\GitHub\AIVisionExercises>python predictONNXS1OD.py 41c20ea0f5414a3381bfab173c1b97a2.ONNX/model.onnx TestImageHealthyDeerDayBuck.jpg
-# Label: 0, Probability: 0.99009, box: (0.29941, 0.50782) (0.61335, 0.81000)
-# Label: 1, Probability: 0.02532, box: (0.34874, 0.00170) (0.58188, 0.55292)
-# Label: 0, Probability: 0.01254, box: (0.00925, 0.15533) (0.87207, 0.98420)
-
-# (venv-python3113-datascience) C:\Development\GitHub\AIVisionExercises>
-
-# labels to be read in from labels.txt
-# 1 deer-day-healthy                    # index 0
-# 2 deer-day-unhealthy                  # index 1
-
-# 2023Sep11 mike evaluating approaches
-# from https://github.com/Azure-Samples/customvision-export-samples/blob/main/samples/python/onnx/object_detection_s1/predict.py
-
-# How to use...  python predict.py <model_filepath> <image_filepath>   <----   NO actual examples...   mike is frustrated.  
-#  "C:\Development\GitHub\AIVisionExercises\41c20ea0f5414a3381bfab173c1b97a2.ONNX\model.onnx"
-# python predictONNXS1OD.py 41c20ea0f5414a3381bfab173c1b97a2.ONNX/model.onnx TestImageHealthyDeerDayBuck.jpg
-#========================================= example ====================================
-#======================================================================================
+# example results
+# Label: ElkCowNight, Probability: 0.06088, box: (0.74602, 0.60209) (0.79751, 0.73416)
+# Label: ElkBullNight, Probability: 0.02869, box: (0.05709, 0.13092) (0.94145, 0.82532)
+# Label: DeerDoeNight, Probability: 0.01669, box: (0.83914, 0.41981) (1.01059, 0.70849)
+# Label: ElkBullNight, Probability: 0.01530, box: (0.07913, -0.01355) (0.98032, 0.48434)
+# Label: WolfNight, Probability: 0.01407, box: (-0.02169, 0.77771) (0.72656, 1.01300)
+# Label: BearNight, Probability: 0.01319, box: (0.21241, -0.03850) (0.79951, 1.02480)
+# Label: SwineNight, Probability: 0.01228, box: (0.01871, 0.42287) (0.10995, 0.53394)
+# Label: DeerDoeNight, Probability: 0.01215, box: (0.00528, 0.38693) (0.52865, 1.07206)
+# Label: MooseBullNight, Probability: 0.01105, box: (0.44823, 0.45687) (0.59371, 0.66333)
+# Label: BearNight, Probability: 0.01003, box: (0.09423, 0.73879) (0.15411, 0.78231)
 
 # IMPORTS
 import argparse
@@ -183,7 +21,7 @@ import onnx
 import onnxruntime
 import PIL.Image
 
-PROB_THRESHOLD = 0.01  # Minimum probably to show results.
+PROB_THRESHOLD = 0.02  # Minimum probably to show results.
 
 
 class Model:
@@ -216,19 +54,73 @@ class Model:
         outputs = self.session.run(self.output_names, {self.input_name: input_array.astype(self.input_type)})
         return {name: outputs[i] for i, name in enumerate(self.output_names)}
 
-# https://www.freecodecamp.org/news/python-switch-statement-switch-case-example/
+# these classes need to be edited to match the model's associated labels.txt file.  NOTE, label file's line numbers are NOT these Index numbers
 def switch(class_id):
     if class_id == 0:
-        return "Healthy Deer"
+        return "BearDay"
     elif class_id == 1:
-        return "UnHealthy Deer"
+        return "BearNight"
+    elif class_id == 2:
+        return "CougarDay"
+    elif class_id == 3:
+        return "CougarNight"
+    elif class_id == 4:
+        return "CoyoteDay"
+    elif class_id == 5:
+        return "CoyoteNight"
+    elif class_id == 6:
+        return "CraneDay"
+    elif class_id == 7:
+        return "DeerBuckDay"
+    elif class_id == 8:
+        return "DeerBuckNight"
+    elif class_id == 9:
+        return "DeerDoeDay"
+    elif class_id == 10:
+        return "DeerDoeNight"
+    elif class_id == 11:
+        return "ElkBullDay"
+    elif class_id == 12:
+        return "ElkBullNight"
+    elif class_id == 13:
+        return "ElkCowDay"
+    elif class_id == 14:
+        return "ElkCowNight"
+    elif class_id == 15:
+        return "HumanDay"
+    elif class_id == 16:
+        return "HumanNight"
+    elif class_id == 17:
+        return "MooseBullDay"
+    elif class_id == 18:
+        return "MooseBullNight"
+    elif class_id == 19:
+        return "MooseCowDay"
+    elif class_id == 20:
+        return "MooseCowNight"
+    elif class_id == 21:
+        return "SwineDay"
+    elif class_id == 22:
+        return "SwineNight"
+    elif class_id == 23:
+        return "TurkeyDay"
+    elif class_id == 24:
+        return "TurkeyNight"
+    elif class_id == 25:
+        return "VehicleDay"
+    elif class_id == 26:
+        return "VehicleNight"
+    elif class_id == 27:
+        return "WolfDay"
+    elif class_id == 28:
+        return "WolfNight"
+
 
 def print_outputs(outputs):
     assert set(outputs.keys()) == set(['detected_boxes', 'detected_classes', 'detected_scores'])
     for box, class_id, score in zip(outputs['detected_boxes'][0], outputs['detected_classes'][0], outputs['detected_scores'][0]):
         if score > PROB_THRESHOLD:
             clabel = switch(class_id)
-#           print(f"Label: {class_id}, Probability: {score:.5f}, box: ({box[0]:.5f}, {box[1]:.5f}) ({box[2]:.5f}, {box[3]:.5f})")
             print(f"Label: {clabel}, Probability: {score:.5f}, box: ({box[0]:.5f}, {box[1]:.5f}) ({box[2]:.5f}, {box[3]:.5f})")
 
 def main():
