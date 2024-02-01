@@ -31,5 +31,10 @@ the entire repo contains a .ONNX folder, (3) .py files, (1) .ipynb file, and a c
 2024/01/04 jberk  
 John-Michael launched VSCode integrated terminal, and from there found that the newly made Git repo had been moved to the User/john account on the *compute-ds11v2-aivisionT* host...   but the AML Workspace editor and session were linked from that user's home direction to ~/cloudfiles/code/   so in the terminal, JM used the cp -r command to copy the full set of AIMi10_for_AMLStudio files TO the /cloudfiles/code/Users/john/AIMi10_for_AMLStudio   and voila, they showed up Where They Should have in AML Studio file system...   but when JM went to rm -r the original source, he got messages about not being the owner, and them being associated w Git...  deleted anyway... will try and sync the new copy...
 
-2024Jan23 jberk
-John checking on some weirdness from VSCode running as IDE for Azure Machine Learning - test commit and up-sync
+01/23/2024 jberk
+John checking on some weirdness from VSCode running as IDE for Azure Machine Learning - test commit and up-sync  
+
+02/01/20204 jberk  
+updated predict.py, predictFromURL.py, and scoreURL021c.py to use all 29 categories for AIMi10 model  
+
+

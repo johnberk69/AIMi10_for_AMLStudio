@@ -69,9 +69,63 @@ class Model:
 
 def switch(class_id):  # this switch function needs to be updated for each implementation of this code to match a given model.  future versions should read and process labels.txt for this
     if class_id == 0:
-        return "Class 00"
+        return "BearDay"
     elif class_id == 1:
-        return "Class 01"
+        return "BearNight"
+    elif class_id == 2:
+        return "CougarDay"
+    elif class_id == 3:
+        return "CougarNight"
+    elif class_id == 4:
+        return "CoyoteDay"
+    elif class_id == 5:
+        return "CoyoteNight"
+    elif class_id == 6:
+        return "CraneDay"
+    elif class_id == 7:
+        return "DeerBuckDay"
+    elif class_id == 8:
+        return "DeerBuckNight"
+    elif class_id == 9:
+        return "DeerDoeDay"
+    elif class_id == 10:
+        return "DeerDoeNight"
+    elif class_id == 11:
+        return "ElkBullDay"
+    elif class_id == 12:
+        return "ElkBullNight"
+    elif class_id == 13:
+        return "ElkCowDay"
+    elif class_id == 14:
+        return "ElkCowNight"
+    elif class_id == 15:
+        return "HumanDay"
+    elif class_id == 16:
+        return "HumanNight"
+    elif class_id == 17:
+        return "MooseBullDay"
+    elif class_id == 18:
+        return "MooseBullNight"
+    elif class_id == 19:
+        return "MooseCowDay"
+    elif class_id == 20:
+        return "MooseCowNight"
+    elif class_id == 21:
+        return "SwineDay"
+    elif class_id == 22:
+        return "SwineNight"
+    elif class_id == 23:
+        return "TurkeyDay"
+    elif class_id == 24:
+        return "TurkeyNight"
+    elif class_id == 25:
+        return "VehicleDay"
+    elif class_id == 26:
+        return "VehicleNight"
+    elif class_id == 27:
+        return "WolfDay"
+    elif class_id == 28:
+        return "WolfNight"
 
 def print_outputs(outputs):
     assert set(outputs.keys()) == set(['detected_boxes', 'detected_classes', 'detected_scores'])
@@ -86,7 +140,6 @@ def init():
     global modelPath   
     global model     
 
-    # modelPath = os.path.join(os.getenv('AZUREML_MODEL_DIR'), 'NADeerCWDobjectdetector.ONNX/model.onnx') # this must be edited to match the Registered model in AML Studio             
     modelPath = os.path.join(os.getenv('AZUREML_MODEL_DIR'), 'TCAI_AIM_Iteration_10_on_Gen_Compact_S1.ONNX/model.onnx') # this must be edited to match the Registered model in AML Studio             
     print("modelPath: ", modelPath) 
 
